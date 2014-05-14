@@ -3,12 +3,11 @@
 # define test runners here
 RUNNERS=(
     'js/'
-    'js/core/assessment/play/'
 )
 
 # define where some things are located
-JASMINE_RUNNER='git-hooks/frontend/jasmine-testrunner.js'
-RUNNER_ROOT='http://app.local.discoveryeducation.com/tests/'
+JASMINE_RUNNER='git-hooks/jasmine-testrunner.js'
+RUNNER_ROOT='http://some.domain.name/tests/'
 
 rc=0
 root=$(git rev-parse --show-cdup)
@@ -32,7 +31,7 @@ pushd $root > /dev/null
 
             # lint JS files
             if [[ ${file##*.} == "js" ]]; then
-                # don't link LIB files
+                # don't lint LIB files
                 if [[ $file != */lib/* ]]; then
                     jshint $file
                     rc=$(($rc + $?))
