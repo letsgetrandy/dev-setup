@@ -1,0 +1,144 @@
+#! /bin/bash
+#
+#  USAGE:
+#      orphan [-dv] filename
+#
+#  OPTIONS:
+#      -d   delete the file if it is an orphan
+#      -f   force (ie, don't prompt)
+#      -h   display help text
+#      -v   verbose
+
+
+OPTERR=0
+foundopts=false
+dodelete=false
+force=false
+useverbose=false
+files=''
+filecount=0
+matches=''
+matchcount=0
+
+findfiles(){
+    files=`find . -name $1`
+    filecount=`echo $files | sed '/^\s*$/d' | wc -l`
+    if [ $filecount -eq 0 ]; then
+        echo "File not found: $1"
+        return 1
+    fi
+    if [ $filecount -gt 1 ]; then
+        echo "Too many files found:"
+        echo "$files"
+        #find . -name $1
+        return 1
+    fi
+}
+
+findmatches(){
+    if command -v ag >/dev/null 2>&1
+    then # use silver-searcher if available
+        matches=`ag --color $1`
+    elif command -v ack >/dev/null 2>&1
+    then # else, use ack if available
+        matches=`ack $1`
+    else # otherwise, just use grep
+        matches=`grep -r '$1' *`
+    fi
+    matchcount=`echo $matches | sed '/^\s*$/d' | wc -l`
+    if [ $matchcount -gt 0 ]; then
+        echo "File '$1' appears to be in use."
+        if $useverbose ; then
+            echo $matches
+        fi
+        return 1
+    fi
+}
+
+usage(){
+    echo
+    echo "  USAGE:"
+    echo "      orphan [-dfhv] filename"
+    echo
+    echo "  OPTIONS:"
+    echo "      -d   delete the file if it is an orphan"
+    echo "      -f   force (ie, don't prompt)"
+    echo "      -h   display this help text"
+    echo "      -v   verbose"
+    echo
+}
+
+while getopts dfhv opt
+do
+    foundopts=true
+    case $opt in
+        d)
+            dodelete=true
+            ;;
+        f)
+            force=true
+            ;;
+        h)
+            usage
+            ;;
+        v)
+            useverbose=true
+            ;;
+        *)
+            echo "unrecognized flag $OPTARG"
+            ;;
+    esac
+done
+
+if $foundopts ; then
+    shift
+fi
+
+if [ $# -lt 1 ]; then
+    usage
+    exit 0;
+fi
+
+while (( "$#" )); do
+    #echo
+    if [ -d $1 ]; then
+        echo "skipping directory $1"
+        shift
+        continue
+    fi
+    basefilename=$(basename $1)
+    findfiles $basefilename
+    if [ $? -ne 0 ]; then
+        shift
+        continue
+    fi
+    if $useverbose ; then
+        echo "found $files"
+        echo "searching files"
+    fi
+    findmatches $basefilename
+    if [ $? -ne 0 ]; then
+        shift
+        continue
+    fi
+    echo "$basefilename appears to be an orphan."
+    if $dodelete ; then
+        if ! $force ; then
+            read -p "Delete? [y/n] " -n 1 -r
+            echo
+        fi
+        if ( $force || [[ $REPLY =~ ^[Yy]$ ]] ); then
+            if [ -d .git ]; then
+                git rm $files
+            else
+                if [ -d .hg ]; then
+                    hg rm $files
+                else
+                    rm $files
+                fi
+            fi
+            echo "Deleted."
+        fi
+    fi
+    shift
+done

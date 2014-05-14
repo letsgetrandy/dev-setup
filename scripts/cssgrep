@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# Searches all HTML files and matches those where a 
+# particular CSS class name is used
+
+if command -v ag >/dev/null 2>&1
+then
+    # use silver-searcher if available
+    ag -G "\\.html$" "class=\"[^\"]*\\b$1\\b[^\"]*\""
+elif command -v ack >/dev/null 2>&1
+then
+    # else, use ack if available
+    ack --html "class=\"[^\"]*\\b$1\\b[^\"]*\""
+else
+    # otherwise, just use grep
+    find . -name "*.html" | xargs grep --color=auto -nioP "class=\"[^\"]*\\b$1\\b[^\"]*\""
+fi
