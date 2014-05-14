@@ -1,0 +1,15 @@
+#! /bin/bash
+
+
+
+pushd $(git rev-parse --show-cdup) > /dev/null
+    if [ ! -f .git/hooks/pre-commit ]; then
+        ln -s ../../git-hooks/frontend/pre-commit .git/hooks/pre-commit
+        chmod 755 .git/hooks/pre-commit
+    fi
+popd > /dev/null
+
+
+#sudo chmod 777 /usr/local/lib/node_modules
+jshint -v foo >/dev/null 2>&1 || npm install -g jshint
+phantomjs -v foo >/dev/null 2>&1 || npm install -g phantomjs

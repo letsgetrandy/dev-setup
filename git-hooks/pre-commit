@@ -1,0 +1,55 @@
+#! /bin/bash
+
+# define test runners here
+RUNNERS=(
+    'js/'
+    'js/core/assessment/play/'
+)
+
+# define where some things are located
+JASMINE_RUNNER='git-hooks/frontend/jasmine-testrunner.js'
+RUNNER_ROOT='http://app.local.discoveryeducation.com/tests/'
+
+rc=0
+root=$(git rev-parse --show-cdup)
+[ -z $root ] && root='.'
+
+# temporarily go to the root of the working tree
+pushd $root > /dev/null
+
+    # loop over the files that are staged to commit
+    for file in $(git diff --cached --name-only); do
+        # don't process deleted files
+        if [ -f $file ]; then
+
+            # check for merge conflicts in commit
+            conflicts=$(cat $file | sed -n -e '/^<<<<<<</,/^>>>>>>>/p')
+            if [ ! -z "$conflicts" ]; then
+                echo -e "\033[31m$conflicts\033[0m"
+                echo "Don't check in a merge conflict!"
+                exit 99
+            fi
+
+            # lint JS files
+            if [[ ${file##*.} == "js" ]]; then
+                # don't link LIB files
+                if [[ $file != */lib/* ]]; then
+                    jshint $file
+                    rc=$(($rc + $?))
+                fi
+            fi
+        fi
+    done
+    # run jasmine tests
+    runners=${RUNNERS[@]/#/$RUNNER_ROOT}
+    phantomjs $JASMINE_RUNNER ${runners[@]}
+    rc=$(($rc + $?))
+
+popd > /dev/null
+
+if [[ $rc -gt 0 ]]; then
+    echo -e "\033[31mErrors found.\033[0m"
+    echo Changes not committed.
+fi
+
+exit $rc
